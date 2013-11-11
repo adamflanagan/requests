@@ -1,46 +1,46 @@
 var Requests = (function () {
     
-    var options = {
+    var socket, options = {
         chartContainerSelector: '#chart',
         columnWidth: 3,
         requestInterval: 500
     };
 
-    var socket = io.connect(document.location.protocol + "//" + document.location.hostname);
-    socket.on('disconnect', function() {
-        socket.socket.reconnect();
-    });
-
     function init () {
-
-        initChart(options.chartContainerSelector);
+        initSocket();
+        initChart();
         bindUi();
+    }
 
-        socket.on('result', function (result) {
-            console.log(result);
-            var chart = $(options.chartContainerSelector).highcharts();
-            chart.series[0].addPoint({ 
-                x: result.start, 
-                y: result.responseTime, 
-                color: getColor(result) 
-            }, false);
+    function onResult (result) {
+        console.log(result);
+        var chart = $(options.chartContainerSelector).highcharts();
+        chart.series[0].addPoint({ 
+            x: result.start, 
+            y: result.responseTime, 
+            color: getColor(result) 
+        }, false);
 
-            var dataPoints = chart.plotWidth / options.columnWidth;
-            var seconds = dataPoints * (options.requestInterval / 1000);
-            chart.xAxis[0].setExtremes(Date.now() - (seconds * 1000), Date.now());
-        });
+        chart.yAxis[0].setExtremes(0, getYAxisMax(), false);
+
+        var dataPoints = chart.plotWidth / options.columnWidth;
+        var seconds = dataPoints * (options.requestInterval / 1000);
+        chart.xAxis[0].setExtremes(Date.now() - (seconds * 1000), Date.now());
     }
 
     function bindUi () {
-        $('#start').on('click', function (event) {
-            initChart(options.chartContainerSelector);
-            var url =  $('#url').val();
-            socket.emit('start', url);
-        });
+        $('#start').on('click', onStart);
+        $('#stop').on('click', onStop);
+    }
 
-        $('#stop').on('click', function (event) {
-            socket.emit('stop');
-        });
+    function onStart (event) {
+        initChart(options.chartContainerSelector);
+        var url =  $('#url').val();
+        socket.emit('start', url);
+    }
+
+    function onStop (event) {
+        socket.emit('stop');
     }
 
     function getColor (result) {
@@ -55,8 +55,8 @@ var Requests = (function () {
         }
     }
 
-    function initChart (selector) {
-         $(selector).highcharts({
+    function initChart () {
+         $(options.chartContainerSelector).highcharts({
             chart: {
                 type: 'column',
                 animation: false
@@ -94,6 +94,16 @@ var Requests = (function () {
                 enabled: false
             }
         });
+    }
+
+    function initSocket() {
+        socket = io.connect(document.location.protocol + "//" + document.location.hostname);
+        socket.on('disconnect', socket.socket.reconnect);
+        socket.on('result', onResult);
+    }
+
+    function getYAxisMax () {
+        return +$('#yMax').val() || null;
     }
 
     return {
